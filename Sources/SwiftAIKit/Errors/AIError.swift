@@ -35,6 +35,21 @@ public enum AIError: LocalizedError {
     /// Server error
     case serverError(message: String)
 
+    /// Invalid request signature
+    case invalidSignature
+
+    /// Request timestamp expired (replay attack prevention)
+    case timestampExpired
+
+    /// Request nonce was reused (replay attack prevention)
+    case nonceReused
+
+    /// Invalid Bundle ID for this project
+    case invalidBundleId
+
+    /// Invalid Team ID for this project
+    case invalidTeamId
+
     /// Unknown error
     case unknown(message: String)
 
@@ -65,6 +80,16 @@ public enum AIError: LocalizedError {
             return "Invalid request: \(message)"
         case .serverError(let message):
             return "Server error: \(message)"
+        case .invalidSignature:
+            return "Invalid request signature"
+        case .timestampExpired:
+            return "Request timestamp is outside acceptable window"
+        case .nonceReused:
+            return "Request nonce has already been used"
+        case .invalidBundleId:
+            return "Invalid Bundle ID for this project"
+        case .invalidTeamId:
+            return "Invalid Team ID for this project"
         case .unknown(let message):
             return "Unknown error: \(message)"
         }

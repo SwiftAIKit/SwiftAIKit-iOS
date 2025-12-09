@@ -6,6 +6,7 @@ actor HTTPClient {
     private let session: URLSession
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
+    private let signer: RequestSigner
 
     init(configuration: AIConfiguration) {
         self.configuration = configuration
@@ -18,6 +19,12 @@ actor HTTPClient {
 
         self.encoder = JSONEncoder()
         self.decoder = JSONDecoder()
+
+        // Initialize request signer with API key and bundle ID
+        self.signer = RequestSigner(
+            apiKey: configuration.apiKey,
+            bundleId: Bundle.main.bundleIdentifier ?? ""
+        )
     }
 
     /// Make a POST request and decode the response
@@ -124,9 +131,17 @@ actor HTTPClient {
             request.setValue(bundleId, forHTTPHeaderField: "X-Bundle-Id")
         }
 
+        // Add Team ID header (Apple Developer Team ID)
+        if let teamId = Bundle.main.infoDictionary?["AppIdentifierPrefix"] as? String {
+            // Remove trailing dot if present
+            let cleanTeamId = teamId.trimmingCharacters(in: CharacterSet(charactersIn: "."))
+            request.setValue(cleanTeamId, forHTTPHeaderField: "X-Team-Id")
+        }
+
         // Add User-Agent
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
 
+        // Encode body if present
         if let body {
             do {
                 request.httpBody = try encoder.encode(body)
@@ -134,6 +149,12 @@ actor HTTPClient {
                 throw AIError.encodingError(underlying: error)
             }
         }
+
+        // Sign the request
+        let (timestamp, nonce, signature) = signer.sign(bodyData: request.httpBody)
+        request.setValue(String(timestamp), forHTTPHeaderField: "X-Timestamp")
+        request.setValue(nonce, forHTTPHeaderField: "X-Nonce")
+        request.setValue(signature, forHTTPHeaderField: "X-Signature")
 
         return request
     }
@@ -206,6 +227,16 @@ actor HTTPClient {
                 throw AIError.quotaExceeded
             case "invalid_api_key", "missing_api_key":
                 throw AIError.invalidAPIKey
+            case "invalid_signature", "missing_signature_headers":
+                throw AIError.invalidSignature
+            case "timestamp_expired", "invalid_timestamp":
+                throw AIError.timestampExpired
+            case "nonce_reused":
+                throw AIError.nonceReused
+            case "invalid_bundle_id":
+                throw AIError.invalidBundleId
+            case "invalid_team_id":
+                throw AIError.invalidTeamId
             default:
                 break
             }

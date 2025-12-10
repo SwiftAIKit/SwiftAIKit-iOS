@@ -21,15 +21,18 @@ struct SettingsView: View {
 
     // MARK: - State Properties
 
-    /// Persisted API Key using @AppStorage.
+    /// Persisted API Key using @AppStorage (UserDefaults).
     ///
-    /// Note: @AppStorage uses UserDefaults which is not encrypted.
-    /// For production apps, consider using Keychain instead:
-    /// ```swift
-    /// // Example using KeychainAccess library
-    /// let keychain = Keychain(service: "com.yourapp.api")
-    /// keychain["apiKey"] = apiKey
-    /// ```
+    /// ⚠️ **DEMO ONLY**: This uses UserDefaults for simplicity in demonstration.
+    ///
+    /// **For Production Apps**: Use iOS Keychain for secure storage instead.
+    /// See `KeychainStorage.swift` in this project for a complete implementation,
+    /// or refer to the "Security Best Practices" section in README.md.
+    ///
+    /// Why Keychain for production?
+    /// - UserDefaults is NOT encrypted (can be read from device backups)
+    /// - Keychain provides OS-level encryption
+    /// - Keychain data is not accessible by other apps
     @AppStorage("apiKey") private var apiKey = ""
 
     /// Temporary API key for editing (not saved until user taps Save).
@@ -87,7 +90,7 @@ struct SettingsView: View {
         } header: {
             Text("API Configuration")
         } footer: {
-            Text("Get your API key from swiftaikit.com/dashboard")
+            Text("Get your API key from swiftaikit.com/dashboard\n\n⚠️ Demo uses UserDefaults. For production, see KeychainStorage.swift for secure storage.")
         }
     }
 

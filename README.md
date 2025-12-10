@@ -209,7 +209,78 @@ struct StreamingChatView: View {
 }
 ```
 
-## Security
+## Security Best Practices
+
+### ⚠️ Critical: Never Hardcode API Keys
+
+**DO NOT:**
+- ❌ Hardcode API keys directly in your source code
+- ❌ Store keys in `UserDefaults` (unencrypted)
+- ❌ Commit keys to version control (add to `.gitignore`)
+- ❌ Share production keys in demo apps or repositories
+- ❌ Include keys in app screenshots or logs
+
+**DO:**
+- ✅ Store keys securely in **iOS Keychain** (see implementation below)
+- ✅ Use environment variables during development
+- ✅ Separate test and production keys
+- ✅ Rotate keys regularly from your dashboard
+- ✅ Monitor API usage for suspicious activity
+
+### Secure API Key Storage
+
+**Production-Ready Reference**: `SwiftAIKitDemo/KeychainStorage.swift`
+
+⚠️ **Note**: The demo app uses `UserDefaults` for simplicity. For production apps, use the provided `KeychainStorage.swift` reference implementation.
+
+Here's how to store your API key securely using Keychain:
+
+```swift
+// 1. Copy KeychainStorage.swift to your project
+
+// 2. Save API key to Keychain
+try KeychainStorage.save(key: "apiKey", value: "sk_live_your_key_here")
+
+// 3. Retrieve from Keychain when initializing the client
+if let apiKey = try? KeychainStorage.get(key: "apiKey") {
+    let client = AIClient(apiKey: apiKey)
+} else {
+    // Prompt user to enter API key in settings
+}
+
+// 4. Delete from Keychain when logging out
+try KeychainStorage.delete(key: "apiKey")
+```
+
+**Why Keychain for Production?**
+- 🔐 **Encrypted** at the OS level (vs. UserDefaults plaintext)
+- 🚫 **Isolated** - Not accessible by other apps
+- 💾 **Persistent** - Survives app reinstalls (optional)
+- ☁️ **Private** - Not backed up to iCloud (with correct accessibility settings)
+- 🔒 **Secure** - Cannot be extracted via device backups or jailbreak tools
+
+**Copy-paste ready implementation**: See `SwiftAIKitDemo/SwiftAIKitDemo/KeychainStorage.swift`
+
+### Environment-Based Configuration
+
+For development, use build configurations:
+
+```swift
+// Debug configuration
+#if DEBUG
+let client = AIClient(apiKey: ProcessInfo.processInfo.environment["SWIFTAIKIT_API_KEY"] ?? "")
+#else
+// Production: load from Keychain
+let apiKey = try KeychainStorage.get(key: "apiKey")
+let client = AIClient(apiKey: apiKey ?? "")
+#endif
+```
+
+Then set the environment variable in your Xcode scheme:
+1. Edit Scheme → Run → Arguments → Environment Variables
+2. Add `SWIFTAIKIT_API_KEY` with your test key
+
+## Security Features
 
 SwiftAIKit includes built-in security features to protect your API keys from misuse.
 

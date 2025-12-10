@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Internal HTTP client for making API requests
 actor HTTPClient {
@@ -7,6 +10,13 @@ actor HTTPClient {
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private let signer: RequestSigner
+
+    // Attestation components (iOS 14.0+)
+    @available(iOS 14.0, macOS 11.0, tvOS 15.0, watchOS 9.0, *)
+    private var attestationManager: (any AttestationProtocol)?
+
+    @available(iOS 14.0, macOS 11.0, tvOS 15.0, watchOS 9.0, *)
+    private var attestationKeychain: AttestationKeychain?
 
     init(configuration: AIConfiguration) {
         self.configuration = configuration
@@ -25,6 +35,18 @@ actor HTTPClient {
             apiKey: configuration.apiKey,
             bundleId: Bundle.main.bundleIdentifier ?? ""
         )
+
+        // Initialize attestation based on environment (iOS 14.0+)
+        if #available(iOS 14.0, macOS 11.0, tvOS 15.0, watchOS 9.0, *) {
+            #if targetEnvironment(simulator)
+            // Use simulator attestation in simulator environment
+            self.attestationManager = SimulatorAttestation()
+            #else
+            // Use real App Attest on physical devices
+            self.attestationManager = AttestationManager()
+            #endif
+            self.attestationKeychain = AttestationKeychain()
+        }
     }
 
     /// Make a POST request and decode the response
@@ -32,15 +54,37 @@ actor HTTPClient {
         path: String,
         body: Request
     ) async throws -> Response {
-        let request = try buildRequest(path: path, method: "POST", body: body)
-        let (data, response) = try await performRequest(request)
-        try validateResponse(response, data: data)
-        return try decodeResponse(data)
+        do {
+            let request = try await buildRequest(path: path, method: "POST", body: body)
+            let (data, response) = try await performRequest(request)
+            try validateResponse(response, data: data)
+            return try decodeResponse(data)
+        } catch AIError.deviceNotRegistered {
+            // Auto-register device and retry once
+            if #available(iOS 14.0, macOS 11.0, tvOS 15.0, watchOS 9.0, *) {
+                try await registerDevice()
+
+                // Retry original request
+                let request = try await buildRequest(path: path, method: "POST", body: body)
+                let (data, response) = try await performRequest(request)
+                try validateResponse(response, data: data)
+                return try decodeResponse(data)
+            } else {
+                throw AIError.attestationNotSupported
+            }
+        } catch AIError.invalidAttestation {
+            // Clear local attestation data and throw error for user to retry
+            if #available(iOS 14.0, macOS 11.0, tvOS 15.0, watchOS 9.0, *) {
+                await attestationManager?.clearAttestation()
+                attestationKeychain?.clear()
+            }
+            throw AIError.invalidAttestation
+        }
     }
 
     /// Make a GET request and decode the response
     func get<Response: Decodable>(path: String) async throws -> Response {
-        let request = try buildRequest(path: path, method: "GET", body: nil as String?)
+        let request = try await buildRequest(path: path, method: "GET", body: nil as String?)
         let (data, response) = try await performRequest(request)
         try validateResponse(response, data: data)
         return try decodeResponse(data)
@@ -51,7 +95,7 @@ actor HTTPClient {
         path: String,
         body: Request
     ) async throws -> AsyncThrowingStream<Data, Error> {
-        var request = try buildRequest(path: path, method: "POST", body: body)
+        var request = try await buildRequest(path: path, method: "POST", body: body)
         request.timeoutInterval = configuration.timeoutInterval * 2
 
         let (bytes, response) = try await session.bytes(for: request)
@@ -119,7 +163,7 @@ actor HTTPClient {
         path: String,
         method: String,
         body: Body?
-    ) throws -> URLRequest {
+    ) async throws -> URLRequest {
         let url = configuration.baseURL.appendingPathComponent(path)
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -155,6 +199,33 @@ actor HTTPClient {
         request.setValue(String(timestamp), forHTTPHeaderField: "X-Timestamp")
         request.setValue(nonce, forHTTPHeaderField: "X-Nonce")
         request.setValue(signature, forHTTPHeaderField: "X-Signature")
+
+        // Add environment header for API logging
+        request.setValue(configuration.environment.isProduction ? "production" : "test", forHTTPHeaderField: "X-Environment")
+
+        // Add attestation headers if available (iOS 14.0+)
+        if #available(iOS 14.0, macOS 11.0, tvOS 15.0, watchOS 9.0, *),
+           let manager = attestationManager,
+           let keychain = attestationKeychain,
+           let keyId = await manager.getKeyId(),
+           let bodyData = request.httpBody
+        {
+            do {
+                // Get and increment counter
+                let counter = keychain.incrementCounter()
+
+                // Generate assertion
+                let assertion = try await manager.generateAssertion(requestData: bodyData, counter: counter)
+
+                // Add attestation headers
+                request.setValue(keyId, forHTTPHeaderField: "X-Attest-Key-Id")
+                request.setValue(assertion, forHTTPHeaderField: "X-Attest-Assertion")
+                request.setValue(String(counter), forHTTPHeaderField: "X-Attest-Counter")
+            } catch {
+                // Attestation generation failed - request will proceed without attestation
+                // API will trigger device registration flow if attestation is required
+            }
+        }
 
         return request
     }
@@ -237,6 +308,16 @@ actor HTTPClient {
                 throw AIError.invalidBundleId
             case "invalid_team_id":
                 throw AIError.invalidTeamId
+            case "attestation_required":
+                throw AIError.attestationRequired
+            case "device_not_registered":
+                throw AIError.deviceNotRegistered
+            case "invalid_attestation":
+                throw AIError.invalidAttestation
+            case "attestation_revoked":
+                throw AIError.attestationRevoked
+            case "simulator_not_allowed":
+                throw AIError.simulatorNotAllowed
             default:
                 break
             }
@@ -264,6 +345,97 @@ actor HTTPClient {
         } catch {
             throw AIError.decodingError(underlying: error)
         }
+    }
+
+    // MARK: - Attestation Registration
+
+    @available(iOS 14.0, macOS 11.0, tvOS 15.0, watchOS 9.0, *)
+    private func registerDevice() async throws {
+        guard let manager = attestationManager else {
+            throw AIError.attestationNotSupported
+        }
+
+        // Step 1: Request challenge from server
+        struct ChallengeRequest: Encodable {
+            let bundleId: String
+        }
+
+        struct ChallengeResponse: Decodable {
+            let challenge: String
+        }
+
+        let challengeRequest = ChallengeRequest(
+            bundleId: Bundle.main.bundleIdentifier ?? "unknown"
+        )
+        let challengeResponse: ChallengeResponse = try await post(
+            path: "/v1/attestation/challenge",
+            body: challengeRequest
+        )
+
+        // Step 2: Attest key with Apple servers
+        let attestation = try await manager.attestKey(challenge: challengeResponse.challenge)
+
+        // Step 3: Register device with API
+        struct RegistrationRequest: Encodable {
+            let keyId: String
+            let attestationObject: String
+            let bundleId: String
+            let teamId: String?
+            let deviceModel: String
+            let osVersion: String
+        }
+
+        struct RegistrationResponse: Decodable {
+            let success: Bool
+            let deviceId: String
+        }
+
+        let keyId = try await manager.ensureKeyExists()
+        let registrationRequest = RegistrationRequest(
+            keyId: keyId,
+            attestationObject: attestation,
+            bundleId: Bundle.main.bundleIdentifier ?? "unknown",
+            teamId: getTeamId(),
+            deviceModel: getDeviceModel(),
+            osVersion: getOSVersion()
+        )
+
+        let _: RegistrationResponse = try await post(
+            path: "/v1/attestation/register",
+            body: registrationRequest
+        )
+    }
+
+    private func getTeamId() -> String? {
+        if let teamId = Bundle.main.infoDictionary?["AppIdentifierPrefix"] as? String {
+            return teamId.trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        }
+        return nil
+    }
+
+    private func getDeviceModel() -> String {
+        #if os(iOS)
+        return "iOS-\(UIDevice.current.model)"
+        #elseif os(macOS)
+        return "macOS"
+        #elseif os(tvOS)
+        return "tvOS"
+        #elseif os(watchOS)
+        return "watchOS"
+        #else
+        return "unknown"
+        #endif
+    }
+
+    private func getOSVersion() -> String {
+        #if os(iOS) || os(tvOS) || os(watchOS)
+        return "\(UIDevice.current.systemName) \(UIDevice.current.systemVersion)"
+        #elseif os(macOS)
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        return "macOS \(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
+        #else
+        return "unknown"
+        #endif
     }
 
     private var userAgent: String {

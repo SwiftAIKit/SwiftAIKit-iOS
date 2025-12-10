@@ -15,12 +15,17 @@ public actor AIClient {
     /// Creates a new AI client with an API key
     /// - Parameters:
     ///   - apiKey: Your SwiftAIKit API key
-    ///   - baseURL: The API base URL (optional)
+    ///   - baseURL: The API base URL (optional, uses custom environment if provided)
     public init(apiKey: String, baseURL: URL? = nil) {
-        let config = AIConfiguration(
-            apiKey: apiKey,
-            baseURL: baseURL ?? URL(string: "https://api.swiftaikit.com")!
-        )
+        let config: AIConfiguration
+        if let baseURL {
+            config = AIConfiguration(
+                apiKey: apiKey,
+                environment: .custom(baseURL: baseURL)
+            )
+        } else {
+            config = AIConfiguration(apiKey: apiKey)
+        }
         self.configuration = config
         self.httpClient = HTTPClient(configuration: config)
     }

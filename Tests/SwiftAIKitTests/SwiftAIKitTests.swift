@@ -105,6 +105,73 @@ final class SwiftAIKitTests: XCTestCase {
         XCTAssertEqual(rateLimitError.errorDescription, "Rate limit exceeded. Retry after 30 seconds")
     }
 
+    func testRateLimitErrorWithoutRetryAfter() {
+        let rateLimitError = AIError.rateLimitExceeded(retryAfter: nil)
+        XCTAssertEqual(rateLimitError.errorDescription, "Rate limit exceeded")
+    }
+
+    // MARK: - Security Error Tests
+
+    func testInvalidSignatureError() {
+        let error = AIError.invalidSignature
+        XCTAssertEqual(error.errorDescription, "Invalid request signature")
+    }
+
+    func testTimestampExpiredError() {
+        let error = AIError.timestampExpired
+        XCTAssertEqual(error.errorDescription, "Request timestamp is outside acceptable window")
+    }
+
+    func testNonceReusedError() {
+        let error = AIError.nonceReused
+        XCTAssertEqual(error.errorDescription, "Request nonce has already been used")
+    }
+
+    func testInvalidBundleIdError() {
+        let error = AIError.invalidBundleId
+        XCTAssertEqual(error.errorDescription, "Invalid Bundle ID for this project")
+    }
+
+    func testInvalidTeamIdError() {
+        let error = AIError.invalidTeamId
+        XCTAssertEqual(error.errorDescription, "Invalid Team ID for this project")
+    }
+
+    // MARK: - Other Error Tests
+
+    func testInvalidRequestError() {
+        let error = AIError.invalidRequest(message: "Missing required field")
+        XCTAssertEqual(error.errorDescription, "Invalid request: Missing required field")
+    }
+
+    func testServerError() {
+        let error = AIError.serverError(message: "Internal server error")
+        XCTAssertEqual(error.errorDescription, "Server error: Internal server error")
+    }
+
+    func testUnknownError() {
+        let error = AIError.unknown(message: "Something went wrong")
+        XCTAssertEqual(error.errorDescription, "Unknown error: Something went wrong")
+    }
+
+    func testNetworkError() {
+        let underlyingError = NSError(domain: "NSURLErrorDomain", code: -1009, userInfo: [NSLocalizedDescriptionKey: "No internet connection"])
+        let error = AIError.networkError(underlying: underlyingError)
+        XCTAssertEqual(error.errorDescription, "Network error: No internet connection")
+    }
+
+    func testEncodingError() {
+        let underlyingError = NSError(domain: "Encoding", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid JSON"])
+        let error = AIError.encodingError(underlying: underlyingError)
+        XCTAssertEqual(error.errorDescription, "Failed to encode request: Invalid JSON")
+    }
+
+    func testDecodingError() {
+        let underlyingError = NSError(domain: "Decoding", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unexpected format"])
+        let error = AIError.decodingError(underlying: underlyingError)
+        XCTAssertEqual(error.errorDescription, "Failed to decode response: Unexpected format")
+    }
+
     // MARK: - ChatCompletion Tests
 
     func testChatCompletionDecoding() throws {

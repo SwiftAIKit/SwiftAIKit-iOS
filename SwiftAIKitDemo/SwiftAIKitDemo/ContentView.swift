@@ -70,7 +70,7 @@ struct ChatView: View {
                         }
                         .onChange(of: messages.count) {
                             withAnimation {
-                                proxy.scrollTo(messages.last?.id ?? "loading", anchor: .bottom)
+                                proxy.scrollTo(messages.last?.id.uuidString ?? "loading", anchor: .bottom)
                             }
                         }
                     }

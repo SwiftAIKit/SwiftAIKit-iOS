@@ -103,6 +103,23 @@ final class RequestSignerTests: XCTestCase {
         XCTAssertNotEqual(signature1, signature2)
     }
 
+    func testBundleIdCaseInsensitivity() {
+        // Bundle IDs with different cases should produce the same signature
+        let signer1 = RequestSigner(apiKey: "sk_test_123", bundleId: "com.Example.App")
+        let signer2 = RequestSigner(apiKey: "sk_test_123", bundleId: "com.example.app")
+        let signer3 = RequestSigner(apiKey: "sk_test_123", bundleId: "COM.EXAMPLE.APP")
+        let timestamp: Int64 = 1700000000
+        let nonce = "550e8400-e29b-41d4-a716-446655440000"
+
+        let signature1 = signer1.computeSignature(timestamp: timestamp, nonce: nonce, bodyData: nil)
+        let signature2 = signer2.computeSignature(timestamp: timestamp, nonce: nonce, bodyData: nil)
+        let signature3 = signer3.computeSignature(timestamp: timestamp, nonce: nonce, bodyData: nil)
+
+        // All signatures should be identical (case-insensitive Bundle ID)
+        XCTAssertEqual(signature1, signature2)
+        XCTAssertEqual(signature2, signature3)
+    }
+
     func testDifferentTimestampsProduceDifferentSignatures() {
         let signer = RequestSigner(apiKey: "sk_test_123", bundleId: "com.example.app")
         let nonce = "550e8400-e29b-41d4-a716-446655440000"

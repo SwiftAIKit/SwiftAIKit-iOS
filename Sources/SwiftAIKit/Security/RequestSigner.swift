@@ -4,7 +4,7 @@ import Foundation
 /// Signs API requests using HMAC-SHA256 to prevent replay attacks and request tampering.
 ///
 /// The signature algorithm:
-/// 1. Derive signing key: `SHA256(apiKey + bundleId)`
+/// 1. Derive signing key: `SHA256(apiKey + bundleId.lowercased())`
 /// 2. Compute body hash: `SHA256(requestBody)`
 /// 3. Build message: `timestamp + "\n" + nonce + "\n" + bodyHash`
 /// 4. Generate signature: `HMAC-SHA256(signingKey, message)`
@@ -12,6 +12,8 @@ import Foundation
 /// This ensures that even if an API key is intercepted, it cannot be used
 /// from a different app (different bundleId), and requests cannot be replayed
 /// (timestamp + nonce validation).
+///
+/// Note: Bundle ID is normalized to lowercase to match Apple's case-insensitive behavior.
 public struct RequestSigner: Sendable {
     private let apiKey: String
     private let bundleId: String
@@ -19,10 +21,10 @@ public struct RequestSigner: Sendable {
     /// Creates a new request signer.
     /// - Parameters:
     ///   - apiKey: The API key used for authentication.
-    ///   - bundleId: The app's bundle identifier.
+    ///   - bundleId: The app's bundle identifier (will be normalized to lowercase).
     public init(apiKey: String, bundleId: String) {
         self.apiKey = apiKey
-        self.bundleId = bundleId
+        self.bundleId = bundleId.lowercased()
     }
 
     /// Signs a request and returns the signature components.

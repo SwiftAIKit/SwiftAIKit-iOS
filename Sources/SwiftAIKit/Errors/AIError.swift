@@ -50,6 +50,24 @@ public enum AIError: LocalizedError {
     /// Invalid Team ID for this project
     case invalidTeamId
 
+    /// Device attestation is required but not provided
+    case attestationRequired
+
+    /// Device is not registered for App Attest
+    case deviceNotRegistered
+
+    /// Device attestation is invalid or verification failed
+    case invalidAttestation
+
+    /// Device attestation has been revoked
+    case attestationRevoked
+
+    /// App Attest is not supported on this device
+    case attestationNotSupported
+
+    /// Simulator attestation not allowed on production API
+    case simulatorNotAllowed
+
     /// Unknown error
     case unknown(message: String)
 
@@ -90,6 +108,18 @@ public enum AIError: LocalizedError {
             return "Invalid Bundle ID for this project"
         case .invalidTeamId:
             return "Invalid Team ID for this project"
+        case .attestationRequired:
+            return "Device attestation is required for API access"
+        case .deviceNotRegistered:
+            return "Device is not registered. Please allow automatic registration."
+        case .invalidAttestation:
+            return "Device attestation is invalid or verification failed"
+        case .attestationRevoked:
+            return "Device attestation has been revoked. Please contact support."
+        case .attestationNotSupported:
+            return "App Attest is not supported on this device"
+        case .simulatorNotAllowed:
+            return "Simulator attestation is not allowed on production API. Use test API instead."
         case .unknown(let message):
             return "Unknown error: \(message)"
         }

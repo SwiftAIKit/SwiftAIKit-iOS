@@ -6,7 +6,9 @@ A Swift SDK for integrating AI capabilities into your iOS, macOS, tvOS, and watc
 
 - Chat completions with streaming support
 - Multiple AI model support (GPT-4, Claude, Gemini via OpenRouter)
-- Automatic Bundle ID validation
+- **Automatic request signing** - HMAC-SHA256 signatures prevent API key misuse
+- **Replay attack protection** - Timestamp and nonce validation
+- **Bundle ID binding** - API keys only work with authorized apps
 - Built-in rate limiting and quota management
 - Full async/await support
 - Type-safe API
@@ -207,6 +209,39 @@ struct StreamingChatView: View {
 }
 ```
 
+## Security
+
+SwiftAIKit includes built-in security features to protect your API keys from misuse.
+
+### How It Works
+
+All API requests are automatically signed using HMAC-SHA256. The signature includes:
+
+- **Timestamp** - Requests are only valid within ±5 minutes
+- **Nonce** - Each request has a unique identifier to prevent replay attacks
+- **Body Hash** - Request body is included in the signature to prevent tampering
+- **Bundle ID** - Your app's bundle identifier is bound to the signature
+
+This means even if someone intercepts your API key, they cannot use it from a different app.
+
+### Setup Requirements
+
+1. **Configure Bundle ID** in your [SwiftAIKit Dashboard](https://swiftaikit.com/dashboard):
+   - Go to your project settings
+   - Add your app's Bundle ID (e.g., `com.yourcompany.yourapp`)
+   - Wildcards are supported (e.g., `com.yourcompany.*`)
+
+2. **Optional: Configure Team ID** for additional security:
+   - Add your Apple Developer Team ID (10 characters, e.g., `ABCDE12345`)
+   - Find it in [Apple Developer Portal](https://developer.apple.com/account) under Membership
+
+### No Code Changes Required
+
+The SDK automatically:
+- Signs every request with your API key and Bundle ID
+- Adds timestamp and nonce headers
+- Sends your app's Team ID (if available)
+
 ## Error Handling
 
 ```swift
@@ -220,10 +255,30 @@ do {
     print("Monthly quota exceeded")
 } catch AIError.timeout {
     print("Request timed out")
+} catch AIError.invalidSignature {
+    print("Request signature verification failed")
+} catch AIError.timestampExpired {
+    print("Request timestamp outside valid window")
+} catch AIError.nonceReused {
+    print("Request nonce was already used")
+} catch AIError.invalidBundleId {
+    print("Bundle ID not authorized for this project")
+} catch AIError.invalidTeamId {
+    print("Team ID not authorized for this project")
 } catch {
     print("Error: \(error)")
 }
 ```
+
+### Security Errors
+
+| Error | Description | Solution |
+|-------|-------------|----------|
+| `invalidSignature` | Request signature verification failed | Ensure SDK is up to date |
+| `timestampExpired` | Device clock is off by more than 5 minutes | Check device time settings |
+| `nonceReused` | Duplicate request detected | Retry with a new request |
+| `invalidBundleId` | Bundle ID not in project whitelist | Add Bundle ID in dashboard |
+| `invalidTeamId` | Team ID not in project whitelist | Add Team ID in dashboard |
 
 ## Configuration Options
 

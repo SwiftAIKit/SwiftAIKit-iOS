@@ -66,9 +66,21 @@ final class SwiftAIKitTests: XCTestCase {
     func testDefaultConfiguration() {
         let config = AIConfiguration(apiKey: "sk_test_123")
         XCTAssertEqual(config.apiKey, "sk_test_123")
-        XCTAssertEqual(config.baseURL.absoluteString, "https://api.swiftaikit.com")
+        // Default environment is auto, which resolves to test in simulator/DEBUG
         XCTAssertEqual(config.timeoutInterval, 60)
         XCTAssertNil(config.defaultModel)
+    }
+
+    func testProductionConfiguration() {
+        let config = AIConfiguration.production(apiKey: "sk_live_123")
+        XCTAssertEqual(config.apiKey, "sk_live_123")
+        XCTAssertEqual(config.baseURL.absoluteString, "https://api.swiftaikit.com")
+    }
+
+    func testTestConfiguration() {
+        let config = AIConfiguration.test(apiKey: "sk_test_123")
+        XCTAssertEqual(config.apiKey, "sk_test_123")
+        XCTAssertEqual(config.baseURL.absoluteString, "https://api-test.swiftaikit.com")
     }
 
     func testLocalConfiguration() {
@@ -80,7 +92,7 @@ final class SwiftAIKitTests: XCTestCase {
     func testCustomConfiguration() {
         let config = AIConfiguration(
             apiKey: "sk_live_abc",
-            baseURL: URL(string: "https://custom.api.com")!,
+            environment: .custom(baseURL: URL(string: "https://custom.api.com")!),
             timeoutInterval: 120,
             defaultModel: "openai/gpt-4o"
         )

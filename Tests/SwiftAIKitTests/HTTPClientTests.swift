@@ -233,9 +233,14 @@ final class HTTPClientTests: XCTestCase {
         XCTAssertEqual(config.timeoutInterval, 120)
     }
 
-    func testConfigurationDefaultBaseURL() {
-        let config = AIConfiguration(apiKey: "sk_test_123")
+    func testConfigurationProductionBaseURL() {
+        let config = AIConfiguration.production(apiKey: "sk_live_123")
         XCTAssertEqual(config.baseURL.absoluteString, "https://api.swiftaikit.com")
+    }
+
+    func testConfigurationTestBaseURL() {
+        let config = AIConfiguration.test(apiKey: "sk_test_123")
+        XCTAssertEqual(config.baseURL.absoluteString, "https://api-test.swiftaikit.com")
     }
 
     // MARK: - Request Building Tests (Indirect via AIClient)
@@ -248,7 +253,7 @@ final class HTTPClientTests: XCTestCase {
     func testAIClientWithConfiguration() {
         let config = AIConfiguration(
             apiKey: "sk_live_abc",
-            baseURL: URL(string: "https://custom.api.com")!,
+            environment: .custom(baseURL: URL(string: "https://custom.api.com")!),
             timeoutInterval: 90,
             defaultModel: "openai/gpt-4o"
         )

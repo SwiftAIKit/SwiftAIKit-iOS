@@ -92,7 +92,7 @@ let response = try await client.chatCompletion(
 // Set a default model in configuration
 let config = AIConfiguration(
     apiKey: "sk_live_...",
-    defaultModel: "openai/gpt-4o"
+    defaultModel: "google/gemini-2.5-flash"
 )
 let client = AIClient(configuration: config)
 ```
@@ -102,7 +102,7 @@ let client = AIClient(configuration: config)
 ```swift
 let response = try await client.chatCompletion(
     messages: [.user("Write a haiku about Swift")],
-    model: "openai/gpt-4o",
+    model: "google/gemini-2.5-flash",
     temperature: 0.7,
     maxTokens: 100,
     topP: 0.9
@@ -358,7 +358,7 @@ let config = AIConfiguration(
     apiKey: "sk_live_...",
     baseURL: URL(string: "https://api.swiftaikit.com")!,
     timeoutInterval: 60,
-    defaultModel: "openai/gpt-4o-mini"
+    defaultModel: "google/gemini-2.5-flash"
 )
 
 let client = AIClient(configuration: config)

@@ -52,7 +52,7 @@ struct ChatView: View {
     /// ```swift
     /// let config = AIConfiguration(
     ///     apiKey: apiKey,
-    ///     defaultModel: "openai/gpt-4o"
+    ///     defaultModel: "google/gemini-2.5-flash"
     /// )
     /// return AIClient(configuration: config)
     /// ```

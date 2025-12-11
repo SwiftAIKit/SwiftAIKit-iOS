@@ -65,7 +65,7 @@ public actor AIClient {
         )
 
         let request = ChatCompletionRequest(
-            model: model ?? configuration.defaultModel ?? "openai/gpt-4o-mini",
+            model: model ?? configuration.defaultModel ?? "google/gemini-2.5-flash",
             messages: messages,
             temperature: temperature,
             maxTokens: maxTokens,
@@ -112,7 +112,7 @@ public actor AIClient {
         )
 
         let request = ChatCompletionRequest(
-            model: model ?? configuration.defaultModel ?? "openai/gpt-4o-mini",
+            model: model ?? configuration.defaultModel ?? "google/gemini-2.5-flash",
             messages: messages,
             temperature: temperature,
             maxTokens: maxTokens,

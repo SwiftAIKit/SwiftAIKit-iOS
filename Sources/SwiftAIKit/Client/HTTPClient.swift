@@ -54,11 +54,22 @@ actor HTTPClient {
         path: String,
         body: Request
     ) async throws -> Response {
+        let result: (Response, BillingInfo?) = try await postWithBilling(path: path, body: body)
+        return result.0
+    }
+
+    /// Make a POST request and decode the response with billing info
+    func postWithBilling<Request: Encodable, Response: Decodable>(
+        path: String,
+        body: Request
+    ) async throws -> (Response, BillingInfo?) {
         do {
             let request = try await buildRequest(path: path, method: "POST", body: body)
             let (data, response) = try await performRequest(request)
             try validateResponse(response, data: data)
-            return try decodeResponse(data)
+            let decoded: Response = try decodeResponse(data)
+            let billing = extractBillingInfo(from: response)
+            return (decoded, billing)
         } catch AIError.deviceNotRegistered {
             // Auto-register device and retry once
             if #available(iOS 14.0, macOS 11.0, tvOS 15.0, watchOS 9.0, *) {
@@ -68,7 +79,9 @@ actor HTTPClient {
                 let request = try await buildRequest(path: path, method: "POST", body: body)
                 let (data, response) = try await performRequest(request)
                 try validateResponse(response, data: data)
-                return try decodeResponse(data)
+                let decoded: Response = try decodeResponse(data)
+                let billing = extractBillingInfo(from: response)
+                return (decoded, billing)
             } else {
                 throw AIError.attestationNotSupported
             }
@@ -80,6 +93,14 @@ actor HTTPClient {
             }
             throw AIError.invalidAttestation
         }
+    }
+
+    /// Extract billing information from HTTP response headers
+    private func extractBillingInfo(from response: URLResponse) -> BillingInfo? {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            return nil
+        }
+        return BillingInfo.from(headers: httpResponse.allHeaderFields)
     }
 
     /// Make a GET request and decode the response
@@ -296,6 +317,8 @@ actor HTTPClient {
                 throw AIError.rateLimitExceeded(retryAfter: retryAfter)
             case "quota_exceeded":
                 throw AIError.quotaExceeded
+            case "insufficient_credits":
+                throw AIError.insufficientCredits
             case "invalid_api_key", "missing_api_key":
                 throw AIError.invalidAPIKey
             case "invalid_signature", "missing_signature_headers":
@@ -328,6 +351,8 @@ actor HTTPClient {
         switch statusCode {
         case 401:
             throw AIError.invalidAPIKey
+        case 402:
+            throw AIError.insufficientCredits
         case 429:
             throw AIError.rateLimitExceeded(retryAfter: retryAfter)
         case 400:

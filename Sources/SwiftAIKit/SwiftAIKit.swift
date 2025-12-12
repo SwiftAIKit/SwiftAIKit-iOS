@@ -22,6 +22,13 @@
 //         print(chunk.content ?? "", terminator: "")
 //     }
 //
+//     // With billing info
+//     let response = try await client.chatCompletionWithBilling(
+//         messages: [.user("Hello!")]
+//     )
+//     print("Cost: $\(response.billing?.creditsUsed ?? 0)")
+//     print("Remaining: $\(response.billing?.creditsRemaining ?? 0)")
+//
 
 // Re-export all public types
 @_exported import Foundation

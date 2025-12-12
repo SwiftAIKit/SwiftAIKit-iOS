@@ -26,8 +26,11 @@ public enum AIError: LocalizedError {
     /// Rate limit exceeded
     case rateLimitExceeded(retryAfter: Int?)
 
-    /// Quota exceeded
+    /// Quota exceeded (legacy token-based)
     case quotaExceeded
+
+    /// Insufficient credits (credits-based billing)
+    case insufficientCredits
 
     /// Invalid request parameters
     case invalidRequest(message: String)
@@ -94,6 +97,8 @@ public enum AIError: LocalizedError {
             return "Rate limit exceeded"
         case .quotaExceeded:
             return "Monthly token quota exceeded"
+        case .insufficientCredits:
+            return "Insufficient credits. Please upgrade your plan or wait for quota reset."
         case .invalidRequest(let message):
             return "Invalid request: \(message)"
         case .serverError(let message):

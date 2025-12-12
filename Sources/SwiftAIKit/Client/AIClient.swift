@@ -54,6 +54,41 @@ public actor AIClient {
         presencePenalty: Double? = nil,
         stop: [String]? = nil
     ) async throws -> ChatCompletion {
+        let response = try await chatCompletionWithBilling(
+            messages: messages,
+            model: model,
+            temperature: temperature,
+            maxTokens: maxTokens,
+            topP: topP,
+            frequencyPenalty: frequencyPenalty,
+            presencePenalty: presencePenalty,
+            stop: stop
+        )
+        return response.data
+    }
+
+    /// Create a chat completion with billing information
+    /// - Parameters:
+    ///   - messages: The conversation messages (must not be empty)
+    ///   - model: The model to use (optional, uses default if not specified)
+    ///   - temperature: Sampling temperature (0-2, default: 1)
+    ///   - maxTokens: Maximum tokens to generate (must be positive)
+    ///   - topP: Top-p sampling parameter (0-1)
+    ///   - frequencyPenalty: Frequency penalty (-2 to 2)
+    ///   - presencePenalty: Presence penalty (-2 to 2)
+    ///   - stop: Stop sequences
+    /// - Returns: The chat completion response with billing info
+    /// - Throws: `AIError.invalidRequest` if parameters are invalid
+    public func chatCompletionWithBilling(
+        messages: [ChatMessage],
+        model: String? = nil,
+        temperature: Double? = nil,
+        maxTokens: Int? = nil,
+        topP: Double? = nil,
+        frequencyPenalty: Double? = nil,
+        presencePenalty: Double? = nil,
+        stop: [String]? = nil
+    ) async throws -> ChatCompletionResponse {
         // Validate parameters
         try validateParameters(
             messages: messages,
@@ -76,7 +111,11 @@ public actor AIClient {
             stream: false
         )
 
-        return try await httpClient.post(path: "v1/chat/completions", body: request)
+        let (completion, billing): (ChatCompletion, BillingInfo?) = try await httpClient.postWithBilling(
+            path: "v1/chat/completions",
+            body: request
+        )
+        return ChatCompletionResponse(data: completion, billing: billing)
     }
 
     /// Create a streaming chat completion
